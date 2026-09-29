@@ -30,6 +30,10 @@
             android:textStyle="bold"
             android:layout_marginBottom="32dp" />
 
+        <!-- Pantalla de solo botones: cada uno abre su propio panel
+             aparte (con sus propias casillas), en vez de tener el
+             correo y la contraseña compartidos a la vista de las tres
+             acciones a la vez, que podía confundir. -->
         <Button
             android:id="@+id/welcomeEntrarBtn"
             android:layout_width="320dp"
@@ -235,7 +239,9 @@
             android:textColor="@color/error_red"
             android:layout_marginTop="8dp"
             android:visibility="gone" />
-    </LinearLayout><!-- ===================== PANEL: OLVIDÉ MI CONTRASEÑA ===================== -->
+    </LinearLayout>
+
+    <!-- ===================== PANEL: OLVIDÉ MI CONTRASEÑA ===================== -->
     <LinearLayout
         android:id="@+id/forgotPanelSection"
         android:layout_width="match_parent"
@@ -380,7 +386,9 @@
             android:textColor="@color/error_red"
             android:layout_marginTop="8dp"
             android:visibility="gone" />
-    </LinearLayout><!-- ===================== PANTALLA PRINCIPAL (TV) ===================== -->
+    </LinearLayout>
+
+    <!-- ===================== PANTALLA PRINCIPAL (TV) ===================== -->
     <FrameLayout
         android:id="@+id/mainSection"
         android:layout_width="match_parent"
@@ -391,7 +399,6 @@
             android:id="@+id/playerView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginBottom="50dp"
             app:use_controller="false"
             app:resize_mode="fit" />
 
@@ -405,7 +412,6 @@
             android:id="@+id/tapOverlay"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_marginBottom="50dp"
             android:background="@android:color/transparent"
             android:clickable="true"
             android:focusable="false" />
@@ -428,13 +434,23 @@
             android:clickable="true"
             android:focusable="true" />
 
-        <!-- Categorías (izquierda) -->
+        <!-- Categorías (izquierda). Ya no ocupa toda la altura pegada al
+             borde: tiene un margen alrededor y esquinas redondeadas, para
+             que se vea como una tarjeta flotando limpiamente encima del
+             vídeo, no como una franja sólida que lo tapa todo. -->
         <LinearLayout
             android:id="@+id/categoriesColumn"
-            android:layout_width="220dp"
+            android:layout_width="200dp"
             android:layout_height="match_parent"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="20dp"
             android:orientation="vertical"
-            android:background="#CC0B0E14"
+            android:background="@drawable/floating_panel_background"
+            android:elevation="12dp"
+            android:clipToPadding="false"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:visibility="gone">
 
             <!-- Aviso de diagnóstico: cuántos canales/países se han
@@ -456,18 +472,23 @@
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:paddingTop="24dp" />
+                android:paddingTop="8dp" />
         </LinearLayout>
 
-        <!-- Canales de la categoría elegida -->
+        <!-- Canales de la categoría elegida: mismo estilo de tarjeta
+             flotante que el panel de países, un poco separada de él. -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/channelsList"
-            android:layout_width="280dp"
+            android:layout_width="260dp"
             android:layout_height="match_parent"
             android:layout_gravity="start"
-            android:layout_marginStart="220dp"
-            android:background="#B30B0E14"
-            android:paddingTop="24dp"
+            android:layout_marginStart="224dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/floating_panel_background"
+            android:elevation="12dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:visibility="gone" />
 
         <!-- OSD: aviso flotante al cambiar de canal -->
@@ -516,16 +537,16 @@
             android:textSize="16sp"
             android:visibility="gone" />
 
-        <!-- Franja de publicidad, siempre visible abajo del todo. Altura
-             fija de 50dp para que coincida exactamente con el hueco que
-             dejamos en el vídeo (playerView) de arriba, así el anuncio
-             nunca tapa ni se monta encima de la imagen. -->
+        <!-- Franja de publicidad: ahora es una capa fina y semitransparente
+             flotando sobre el borde inferior del vídeo (no un hueco fijo
+             que reduce la imagen), para que la pantalla se vea completa
+             de esquina a esquina y el anuncio no descuadre el diseño. -->
         <FrameLayout
             android:id="@+id/adContainer"
             android:layout_width="match_parent"
             android:layout_height="50dp"
             android:layout_gravity="bottom"
-            android:background="#0B0E14" />
+            android:background="#99000000" />
     </FrameLayout>
 
 </FrameLayout>

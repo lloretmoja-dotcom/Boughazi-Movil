@@ -1,4 +1,4 @@
-name: Compilar APK de Boughazi.tv
+name: Compilar APK de Boughazi Móvil
 
 on:
   push:
@@ -35,15 +35,15 @@ jobs:
       - name: Subir el APK como resultado descargable (copia de seguridad)
         uses: actions/upload-artifact@v4
         with:
-          name: boughazi-apk
+          name: boughazi-movil-apk
           path: app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Publicar el APK en un enlace permanente (para instalar con Downloader)
+      - name: Publicar el APK en un enlace permanente (para el móvil)
         uses: ncipollo/release-action@v1
         with:
           tag: ultima-version
-          name: "Boughazi-TV — última versión"
-          body: "Instala esta app en tu televisor con la app Downloader, usando este mismo enlace."
+          name: "Boughazi Móvil — última versión"
+          body: "Descarga el archivo APK de aquí abajo (en 'Assets') e instálalo directamente en tu móvil Android."
           allowUpdates: true
           replacesArtifacts: true
           artifacts: app/build/outputs/apk/debug/app-debug.apk

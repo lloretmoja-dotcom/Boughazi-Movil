@@ -418,6 +418,24 @@
             android:clickable="true"
             android:focusable="false" />
 
+        <!-- Botón de menú (☰), siempre visible arriba a la derecha del
+             vídeo. Al tocarlo se abre la lista de canales (con su logo)
+             justo en el país y canal donde se está viendo en ese momento;
+             al tocarlo de nuevo, se cierra y se vuelve al canal. -->
+        <TextView
+            android:id="@+id/menuButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="14dp"
+            android:text="☰"
+            android:textColor="@color/white"
+            android:textSize="26sp"
+            android:gravity="center"
+            android:background="#99000000"
+            android:clickable="true"
+            android:focusable="true" />
+
         <!-- Categorías (izquierda) -->
         <LinearLayout
             android:id="@+id/categoriesColumn"
@@ -481,41 +499,4 @@
 
             <TextView
                 android:id="@+id/osdNumber"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/accent_orange"
-                android:textSize="26sp"
-                android:textStyle="bold"
-                android:layout_marginEnd="16dp" />
-
-            <TextView
-                android:id="@+id/osdName"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/white"
-                android:textSize="22sp" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/loadingText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="Cargando canales…"
-            android:textColor="@color/white"
-            android:textSize="16sp"
-            android:visibility="gone" />
-
-        <!-- Franja de publicidad, siempre visible abajo del todo. Altura
-             fija de 50dp para que coincida exactamente con el hueco que
-             dejamos en el vídeo (playerView) de arriba, así el anuncio
-             nunca tapa ni se monta encima de la imagen. -->
-        <FrameLayout
-            android:id="@+id/adContainer"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_gravity="bottom"
-            android:background="#0B0E14" />
-    </FrameLayout>
-
-</FrameLayout>
+                android:layout_w

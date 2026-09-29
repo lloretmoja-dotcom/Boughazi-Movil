@@ -403,6 +403,21 @@
             app:use_controller="false"
             app:resize_mode="fit" />
 
+        <!-- El propio reproductor de vídeo "se come" los toques con el
+             dedo para sus propios gestos internos, así que un toque
+             puesto directamente en él muchas veces no llega a activarse.
+             Esta capa transparente, del mismo tamaño, puesta justo encima,
+             es la que de verdad recibe el toque para abrir la lista de
+             canales. -->
+        <View
+            android:id="@+id/tapOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="50dp"
+            android:background="@android:color/transparent"
+            android:clickable="true"
+            android:focusable="false" />
+
         <!-- Categorías (izquierda) -->
         <LinearLayout
             android:id="@+id/categoriesColumn"

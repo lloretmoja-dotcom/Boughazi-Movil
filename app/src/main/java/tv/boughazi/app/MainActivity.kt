@@ -19,9 +19,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
 import kotlinx.coroutines.launch
 
@@ -749,10 +751,28 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupAdBanner() {
         val testAdUnitId = "ca-app-pub-3940256099942544/6300978111"
+        val adContainer = findViewById<android.widget.FrameLayout>(R.id.adContainer)
         val adView = AdView(this)
         adView.adUnitId = testAdUnitId
         adView.setAdSize(AdSize.BANNER)
-        findViewById<android.widget.FrameLayout>(R.id.adContainer).addView(adView)
+        // El contenedor empieza oculto (visibility="gone" en el layout).
+        // Solo lo mostramos cuando llega un anuncio real; si falla la carga
+        // o el anuncio se descarta, lo volvemos a ocultar del todo, para
+        // que la franja nunca ocupe espacio ni se vea vacía en pantalla.
+        adView.adListener = object : AdListener() {
+            override fun onAdLoaded() {
+                adContainer.visibility = View.VISIBLE
+            }
+
+            override fun onAdFailedToLoad(adError: LoadAdError) {
+                adContainer.visibility = View.GONE
+            }
+
+            override fun onAdClosed() {
+                adContainer.visibility = View.GONE
+            }
+        }
+        adContainer.addView(adView)
         adView.loadAd(AdRequest.Builder().build())
     }
 

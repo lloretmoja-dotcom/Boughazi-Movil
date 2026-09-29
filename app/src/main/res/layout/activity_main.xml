@@ -537,16 +537,18 @@
             android:textSize="16sp"
             android:visibility="gone" />
 
-        <!-- Franja de publicidad: ahora es una capa fina y semitransparente
-             flotando sobre el borde inferior del vídeo (no un hueco fijo
-             que reduce la imagen), para que la pantalla se vea completa
-             de esquina a esquina y el anuncio no descuadre el diseño. -->
+        <!-- Franja de publicidad: una capa fina y semitransparente flotando
+             sobre el borde inferior del vídeo. Empieza oculta (gone) y solo
+             se muestra desde el código cuando llega un anuncio de verdad,
+             para que la pantalla se vea completa de esquina a esquina
+             cuando no hay anuncio que mostrar. -->
         <FrameLayout
             android:id="@+id/adContainer"
             android:layout_width="match_parent"
             android:layout_height="50dp"
             android:layout_gravity="bottom"
-            android:background="#99000000" />
+            android:background="#99000000"
+            android:visibility="gone" />
     </FrameLayout>
 
 </FrameLayout>

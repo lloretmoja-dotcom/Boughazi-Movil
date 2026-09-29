@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fondo del panel flotante de canales: esquinas redondeadas y un
+     poco transparente, para que se vea como una tarjeta flotando
+     encima del vídeo, no como una franja sólida pegada al borde. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#E60B0E14" />
+    <corners android:radius="18dp" />
+</shape>

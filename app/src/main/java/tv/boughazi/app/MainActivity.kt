@@ -1,5 +1,6 @@
 package tv.boughazi.app
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -75,6 +76,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        updateFullscreenMode(resources.configuration.orientation)
         sessionManager = SessionManager(this)
         MobileAds.initialize(this)
 
@@ -93,6 +95,32 @@ class MainActivity : AppCompatActivity() {
         osdName = findViewById(R.id.osdName)
         loadingText = findViewById(R.id.loadingText)
         debugInfoText = findViewById(R.id.debugInfoText)
+        val tapOverlay: View = findViewById(R.id.tapOverlay)
+        val menuButton: View = findViewById(R.id.menuButton)
+
+        // En la tele esto se abre con el botón de guía/menú del mando. En
+        // el móvil no hay mando, así que tocar la pantalla mientras se ve
+        // un canal hace exactamente lo mismo: abre o cierra la lista de
+        // canales para poder elegir otro. El toque se recoge en la capa
+        // transparente de encima ("tapOverlay"), no en el propio vídeo,
+        // porque el reproductor se queda con el toque para sus propios
+        // gestos y nunca llegaba a notar el click.
+        tapOverlay.setOnClickListener {
+            if (mainSection.visibility == View.VISIBLE) {
+                if (categoriesColumn.visibility == View.VISIBLE) hideChannelBrowser() else showChannelBrowser()
+            }
+        }
+
+        // Botón de menú (☰) fijo, siempre encima del vídeo. Hace lo mismo
+        // que tocar la pantalla, pero al ser un botón concreto y visible
+        // es más fácil de encontrar. Se abre directamente en el canal que
+        // se está viendo en ese momento, con su logo, y al volver a
+        // tocarlo se cierra y se regresa al vídeo.
+        menuButton.setOnClickListener {
+            if (mainSection.visibility == View.VISIBLE) {
+                if (categoriesColumn.visibility == View.VISIBLE) hideChannelBrowser() else openBrowserAtCurrentChannel()
+            }
+        }
 
         setupWelcomeSection()
         setupLoginPanel()
@@ -120,6 +148,42 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Cuando el móvil está girado en horizontal, el canal se ve en pantalla
+     * completa de verdad: se esconden la barra de arriba (hora, wifi,
+     * batería) y la barra de abajo del móvil, para que el vídeo ocupe todo
+     * el hueco. Cuando el móvil vuelve a estar en vertical, esas barras
+     * se vuelven a ver normales.
+     */
+    private fun updateFullscreenMode(orientation: Int) {
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                )
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateFullscreenMode(newConfig.orientation)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            updateFullscreenMode(resources.configuration.orientation)
         }
     }
 
@@ -356,6 +420,7 @@ class MainActivity : AppCompatActivity() {
                 updateDebugInfo(allChannels.size, categories.size, result.totalReportedByServer)
 
                 categoriesList.adapter = RowAdapter(
+                    lifecycleScope,
                     categories.map { RowItem(title = it) }
                 ) { position -> onCategorySelected(categories[position]) }
 
@@ -401,301 +466,4 @@ class MainActivity : AppCompatActivity() {
 
     private suspend fun loadChannels(currentSession: UserSession, allowRetry: Boolean) {
         when (val result = channelRepository.fetchChannels(currentSession)) {
-            is ChannelsResult.Success -> {
-                allChannels = result.channels
-                categories = allChannels.map { it.category }.distinct()
-                loadingText.visibility = View.GONE
-
-                if (allChannels.isEmpty()) {
-                    loadingText.text = "Todavía no hay canales disponibles."
-                    loadingText.visibility = View.VISIBLE
-                    return
-                }
-
-                categoriesList.adapter = RowAdapter(
-                    categories.map { RowItem(title = it) }
-                ) { position -> onCategorySelected(categories[position]) }
-
-                updateDebugInfo(allChannels.size, categories.size, result.totalReportedByServer)
-
-                playChannel(0)
-                startPresenceHeartbeat()
-            }
-            is ChannelsResult.Failure -> {
-                if (allowRetry && (result.httpStatus == 401 || result.httpStatus == 403)) {
-                    when (val refreshed = authRepository.refreshSession(currentSession.refreshToken)) {
-                        is AuthResult.Success -> {
-                            val renewed = refreshed.session.copy(hasLinkedCode = currentSession.hasLinkedCode)
-                            session = renewed
-                            sessionManager.save(renewed)
-                            loadChannels(renewed, allowRetry = false)
-                        }
-                        is AuthResult.Failure -> {
-                            loadingText.text = "Tu sesión ha caducado. Sal de la app y vuelve a entrar con tu Gmail."
-                            loadingText.visibility = View.VISIBLE
-                        }
-                    }
-                } else {
-                    loadingText.text =
-                        "No se pudieron cargar los canales. (Detalle: HTTP ${result.httpStatus} — ${result.detail})"
-                    loadingText.visibility = View.VISIBLE
-                }
-            }
-        }
-    }
-
-    private fun onCategorySelected(category: String) {
-        currentlyViewedCategory = category
-        val channelsInCategory = allChannels.filter { it.category == category }
-        channelsList.adapter = RowAdapter(
-            channelsInCategory.mapIndexed { idx, it -> RowItem(title = "${idx + 1}  ${it.name}") }
-        ) { position ->
-            val chosen = channelsInCategory[position]
-            val flatIndex = allChannels.indexOfFirst { it.id == chosen.id }
-            if (flatIndex >= 0) playChannel(flatIndex)
-            hideChannelBrowser()
-        }
-        channelsList.visibility = View.VISIBLE
-        channelsList.requestFocus()
-    }
-
-    private fun showChannelBrowser() {
-        categoriesColumn.visibility = View.VISIBLE
-        categoriesList.requestFocus()
-    }
-
-    /**
-     * Al pulsar OK mientras se está viendo un canal, abrimos la lista
-     * directamente en el país y canal donde se está en ese momento,
-     * para que se vea de un vistazo "dónde estoy" y se pueda cambiar
-     * sin tener que buscar desde el principio.
-     */
-    private fun openBrowserAtCurrentChannel() {
-        categoriesColumn.visibility = View.VISIBLE
-        val current = allChannels.getOrNull(currentIndex)
-        if (current != null) {
-            onCategorySelected(current.category)
-            channelsList.requestFocus()
-        } else {
-            categoriesList.requestFocus()
-        }
-    }
-
-    private fun hideChannelBrowser() {
-        categoriesColumn.visibility = View.GONE
-        channelsList.visibility = View.GONE
-        currentlyViewedCategory = null
-        playerView.requestFocus()
-    }
-
-    private fun playChannel(index: Int) {
-        if (index !in allChannels.indices) return
-        currentIndex = index
-        val channel = allChannels[index]
-        exoPlayer?.apply {
-            setMediaItem(MediaItem.fromUri(channel.streamUrl))
-            prepare()
-            playWhenReady = true
-        }
-        showOsd(channel)
-        updatePresenceChannel(channel.id)
-    }
-
-    // Al cambiar de canal con el mando (CH+/CH-), nos quedamos siempre
-    // dentro del mismo país: al llegar al último canal del país se
-    // vuelve al primero (canal 1), y al revés. NO salta solo a otro
-    // país — para eso hay que abrir el buscador (OK) y elegirlo a mano.
-    private fun zapNext() {
-        val current = allChannels.getOrNull(currentIndex) ?: return
-        val channelsInCategory = allChannels.filter { it.category == current.category }
-        val posInCategory = channelsInCategory.indexOfFirst { it.id == current.id }
-        if (posInCategory < 0 || channelsInCategory.isEmpty()) return
-        val nextChannel = channelsInCategory[(posInCategory + 1) % channelsInCategory.size]
-        val flatIndex = allChannels.indexOfFirst { it.id == nextChannel.id }
-        if (flatIndex >= 0) playChannel(flatIndex)
-    }
-
-    private fun zapPrevious() {
-        val current = allChannels.getOrNull(currentIndex) ?: return
-        val channelsInCategory = allChannels.filter { it.category == current.category }
-        val posInCategory = channelsInCategory.indexOfFirst { it.id == current.id }
-        if (posInCategory < 0 || channelsInCategory.isEmpty()) return
-        val prevChannel = channelsInCategory[(posInCategory - 1 + channelsInCategory.size) % channelsInCategory.size]
-        val flatIndex = allChannels.indexOfFirst { it.id == prevChannel.id }
-        if (flatIndex >= 0) playChannel(flatIndex)
-    }
-
-    private fun showOsd(channel: Channel) {
-        // El número que se ve es la posición del canal dentro de SU país
-        // (empieza en 1 en cada país), no el número global guardado en la
-        // base de datos. Así, si se borra un canal, los demás se corren
-        // solos y no quedan huecos.
-        val posInCategory = allChannels.filter { it.category == channel.category }
-            .indexOfFirst { it.id == channel.id } + 1
-        osdNumber.text = posInCategory.toString()
-        osdName.text = channel.name
-        ImageLoader.load(lifecycleScope, channel.logoUrl, findViewById(R.id.osdLogo))
-        osdContainer.visibility = View.VISIBLE
-        osdHideRunnable?.let { handler.removeCallbacks(it) }
-        val runnable = Runnable { osdContainer.visibility = View.GONE }
-        osdHideRunnable = runnable
-        handler.postDelayed(runnable, 3000)
-    }
-
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (mainSection.visibility != View.VISIBLE) return super.onKeyDown(keyCode, event)
-
-        when (keyCode) {
-            KeyEvent.KEYCODE_CHANNEL_UP -> { zapNext(); return true }
-            KeyEvent.KEYCODE_CHANNEL_DOWN -> { zapPrevious(); return true }
-            KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_GUIDE -> {
-                if (categoriesColumn.visibility == View.VISIBLE) hideChannelBrowser() else showChannelBrowser()
-                return true
-            }
-            KeyEvent.KEYCODE_BACK -> {
-                if (categoriesColumn.visibility == View.VISIBLE || channelsList.visibility == View.VISIBLE) {
-                    hideChannelBrowser()
-                }
-                // Antes, si se pulsaba "atrás" mientras solo se estaba
-                // viendo un canal (sin el buscador abierto), Android
-                // cerraba la aplicación entera sin avisar — esto es lo
-                // que pasaba cuando, cambiando de canal con el mando, se
-                // rozaba sin querer el botón de atrás. Ahora lo
-                // "absorbemos" siempre aquí para que nunca cierre la app
-                // sola mientras se está viendo la televisión.
-                return true
-            }
-            KeyEvent.KEYCODE_DPAD_UP -> {
-                if (categoriesColumn.visibility != View.VISIBLE && channelsList.visibility != View.VISIBLE) {
-                    showChannelBrowser()
-                    return true
-                }
-            }
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
-                if (categoriesColumn.visibility != View.VISIBLE && channelsList.visibility != View.VISIBLE) {
-                    openBrowserAtCurrentChannel()
-                    return true
-                }
-            }
-            in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 -> {
-                val digit = keyCode - KeyEvent.KEYCODE_0
-                onDigitEntered(digit)
-                return true
-            }
-        }
-        return super.onKeyDown(keyCode, event)
-    }
-
-    // Red de seguridad adicional: pase lo que pase con el botón "atrás"
-    // del mando, mientras se está en la pantalla principal (viendo la
-    // tele) nunca dejamos que cierre la aplicación sola.
-    override fun onBackPressed() {
-        if (mainSection.visibility == View.VISIBLE) {
-            if (categoriesColumn.visibility == View.VISIBLE || channelsList.visibility == View.VISIBLE) {
-                hideChannelBrowser()
-            }
-            return
-        }
-        super.onBackPressed()
-    }
-
-    private fun onDigitEntered(digit: Int) {
-        numberBuffer.append(digit)
-        osdNumber.text = numberBuffer.toString()
-        osdName.text = "Introduce el número de canal…"
-        osdContainer.visibility = View.VISIBLE
-
-        numberEntryRunnable?.let { handler.removeCallbacks(it) }
-        val runnable = Runnable { confirmNumberEntry() }
-        numberEntryRunnable = runnable
-        handler.postDelayed(runnable, 1500)
-    }
-
-    private fun confirmNumberEntry() {
-        val typed = numberBuffer.toString().toIntOrNull()
-        numberBuffer.clear()
-        if (typed == null) return
-        // El número tecleado es la posición dentro del país del canal que
-        // se está viendo ahora mismo (cada país empieza a contar desde 1),
-        // no el número global guardado en la base de datos.
-        val currentCategory = allChannels.getOrNull(currentIndex)?.category
-        val channelsInCategory = allChannels.filter { it.category == currentCategory }
-        val chosen = channelsInCategory.getOrNull(typed - 1)
-        val index = if (chosen != null) allChannels.indexOfFirst { it.id == chosen.id } else -1
-        if (index >= 0) {
-            playChannel(index)
-        } else {
-            osdName.text = "Canal $typed no encontrado"
-            handler.postDelayed({ osdContainer.visibility = View.GONE }, 1500)
-        }
-    }
-
-    private fun startPresenceHeartbeat() {
-        val runnable = object : Runnable {
-            override fun run() {
-                val currentSession = session ?: return
-                val channelId = allChannels.getOrNull(currentIndex)?.id
-                lifecycleScope.launch { presenceRepository.ping(currentSession, channelId) }
-                handler.postDelayed(this, 20000)
-            }
-        }
-        presenceRunnable = runnable
-        handler.post(runnable)
-    }
-
-    private fun updatePresenceChannel(channelId: String) {
-        val currentSession = session ?: return
-        lifecycleScope.launch { presenceRepository.ping(currentSession, channelId) }
-    }
-
-    private fun setupAdBanner() {
-        val testAdUnitId = "ca-app-pub-3940256099942544/6300978111"
-        val adView = AdView(this)
-        adView.adUnitId = testAdUnitId
-        adView.setAdSize(AdSize.BANNER)
-        findViewById<android.widget.FrameLayout>(R.id.adContainer).addView(adView)
-        adView.loadAd(AdRequest.Builder().build())
-    }
-
-    private fun showOnly(view: View) {
-        val allScreens = listOf(
-            welcomeSection, loginPanelSection, signUpPanelSection, forgotPanelSection, codeSection, mainSection
-        )
-        allScreens.forEach { it.visibility = if (it == view) View.VISIBLE else View.GONE }
-        view.post {
-            when (view) {
-                welcomeSection -> findViewById<View>(R.id.welcomeEntrarBtn)?.requestFocus()
-                loginPanelSection -> findViewById<View>(R.id.loginEmail)?.requestFocus()
-                signUpPanelSection -> findViewById<View>(R.id.signUpEmail)?.requestFocus()
-                forgotPanelSection -> findViewById<View>(R.id.forgotEmail)?.requestFocus()
-                codeSection -> findViewById<View>(R.id.codeInput)?.requestFocus()
-            }
-        }
-    }
-
-    private fun showError(textView: TextView, message: String) {
-        textView.text = message
-        textView.visibility = View.VISIBLE
-    }
-
-    override fun onStop() {
-        super.onStop()
-        exoPlayer?.playWhenReady = false
-    }
-
-    override fun onStart() {
-        super.onStart()
-        if (currentIndex in allChannels.indices) {
-            playChannel(currentIndex)
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        presenceRunnable?.let { handler.removeCallbacks(it) }
-        osdHideRunnable?.let { handler.removeCallbacks(it) }
-        numberEntryRunnable?.let { handler.removeCallbacks(it) }
-        channelRefreshRunnable?.let { handler.removeCallbacks(it) }
-        exoPlayer?.release()
-    }
-}
+            is ChannelsResult.Succ

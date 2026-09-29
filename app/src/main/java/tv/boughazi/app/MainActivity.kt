@@ -522,12 +522,12 @@ class MainActivity : AppCompatActivity() {
             if (flatIndex >= 0) playChannel(flatIndex)
             hideChannelBrowser()
         }
-        channelsList.visibility = View.VISIBLE
+        floatIn(channelsList)
         channelsList.requestFocus()
     }
 
     private fun showChannelBrowser() {
-        categoriesColumn.visibility = View.VISIBLE
+        floatIn(categoriesColumn)
         categoriesList.requestFocus()
     }
 
@@ -538,7 +538,7 @@ class MainActivity : AppCompatActivity() {
      * sin tener que buscar desde el principio.
      */
     private fun openBrowserAtCurrentChannel() {
-        categoriesColumn.visibility = View.VISIBLE
+        floatIn(categoriesColumn)
         val current = allChannels.getOrNull(currentIndex)
         if (current != null) {
             onCategorySelected(current.category)
@@ -549,10 +549,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hideChannelBrowser() {
-        categoriesColumn.visibility = View.GONE
-        channelsList.visibility = View.GONE
+        floatOut(categoriesColumn)
+        floatOut(channelsList)
         currentlyViewedCategory = null
         playerView.requestFocus()
+    }
+
+    // Los paneles de canales ya no aparecen/desaparecen de golpe: entran
+    // deslizándose un poco desde la izquierda mientras se hacen visibles
+    // (floatIn), y salen de la misma forma antes de esconderse del todo
+    // (floatOut), para que se sientan como una tarjeta flotando encima
+    // del vídeo en vez de un cambio brusco de pantalla.
+    private fun floatIn(view: View) {
+        view.animate().cancel()
+        view.translationX = -40f
+        view.alpha = 0f
+        view.visibility = View.VISIBLE
+        view.animate()
+            .translationX(0f)
+            .alpha(1f)
+            .setDuration(200)
+            .start()
+    }
+
+    private fun floatOut(view: View) {
+        if (view.visibility != View.VISIBLE) return
+        view.animate().cancel()
+        view.animate()
+            .translationX(-40f)
+            .alpha(0f)
+            .setDuration(150)
+            .withEndAction {
+                view.visibility = View.GONE
+                view.translationX = 0f
+                view.alpha = 1f
+            }
+            .start()
     }
 
     private fun playChannel(index: Int) {

@@ -93,12 +93,16 @@ class MainActivity : AppCompatActivity() {
         osdName = findViewById(R.id.osdName)
         loadingText = findViewById(R.id.loadingText)
         debugInfoText = findViewById(R.id.debugInfoText)
+        val tapOverlay: View = findViewById(R.id.tapOverlay)
 
         // En la tele esto se abre con el botón de guía/menú del mando. En
         // el móvil no hay mando, así que tocar la pantalla mientras se ve
         // un canal hace exactamente lo mismo: abre o cierra la lista de
-        // canales para poder elegir otro.
-        playerView.setOnClickListener {
+        // canales para poder elegir otro. El toque se recoge en la capa
+        // transparente de encima ("tapOverlay"), no en el propio vídeo,
+        // porque el reproductor se queda con el toque para sus propios
+        // gestos y nunca llegaba a notar el click.
+        tapOverlay.setOnClickListener {
             if (mainSection.visibility == View.VISIBLE) {
                 if (categoriesColumn.visibility == View.VISIBLE) hideChannelBrowser() else showChannelBrowser()
             }

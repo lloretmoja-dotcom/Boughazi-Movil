@@ -399,8 +399,9 @@
             android:id="@+id/playerView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:layout_marginBottom="50dp"
             app:use_controller="false"
-            app:resize_mode="fill" />
+            app:resize_mode="fit" />
 
         <!-- Categorías (izquierda) -->
         <LinearLayout
@@ -490,11 +491,14 @@
             android:textSize="16sp"
             android:visibility="gone" />
 
-        <!-- Franja de publicidad, siempre visible abajo del todo -->
+        <!-- Franja de publicidad, siempre visible abajo del todo. Altura
+             fija de 50dp para que coincida exactamente con el hueco que
+             dejamos en el vídeo (playerView) de arriba, así el anuncio
+             nunca tapa ni se monta encima de la imagen. -->
         <FrameLayout
             android:id="@+id/adContainer"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="50dp"
             android:layout_gravity="bottom"
             android:background="#0B0E14" />
     </FrameLayout>

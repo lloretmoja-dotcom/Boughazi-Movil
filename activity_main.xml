@@ -402,13 +402,79 @@
             app:use_controller="false"
             app:resize_mode="fit" />
 
-        <!-- Categorías (izquierda) -->
+        <!-- El propio reproductor de vídeo "se come" los toques con el
+             dedo para sus propios gestos internos, así que un toque
+             puesto directamente en él muchas veces no llega a activarse.
+             Esta capa transparente, del mismo tamaño, puesta justo encima,
+             es la que de verdad recibe el toque para abrir la lista de
+             canales. -->
+        <View
+            android:id="@+id/tapOverlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:clickable="true"
+            android:focusable="false" />
+
+        <!-- Los dos botones fijos van juntos, uno encima del otro, arriba
+             a la izquierda del vídeo: primero el de pantalla completa,
+             luego el de la lista de canales. -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
+            android:layout_margin="14dp"
+            android:orientation="vertical"
+            android:elevation="16dp">
+
+            <!-- Botón de pantalla completa (⛶). Al tocarlo, la persona
+                 puede entrar o salir de la pantalla completa de verdad
+                 ella misma, sin tener que girar el móvil. -->
+            <ImageView
+                android:id="@+id/fullscreenButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="11dp"
+                android:src="@drawable/ic_fullscreen"
+                android:background="#99000000"
+                android:contentDescription="@null"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Botón de la lista de canales (☰). Al tocarlo se abre la
+                 lista de canales (con su logo) justo en el país y canal
+                 donde se está viendo en ese momento; al tocarlo de nuevo,
+                 se cierra y se vuelve al canal. -->
+            <ImageView
+                android:id="@+id/menuButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="10dp"
+                android:padding="11dp"
+                android:src="@drawable/ic_channels_menu"
+                android:background="#99000000"
+                android:contentDescription="@null"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
+
+        <!-- Categorías (izquierda). Ya no ocupa toda la altura pegada al
+             borde: tiene un margen alrededor y esquinas redondeadas, para
+             que se vea como una tarjeta flotando limpiamente encima del
+             vídeo, no como una franja sólida que lo tapa todo. -->
         <LinearLayout
             android:id="@+id/categoriesColumn"
-            android:layout_width="220dp"
+            android:layout_width="200dp"
             android:layout_height="match_parent"
+            android:layout_marginStart="12dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="20dp"
             android:orientation="vertical"
-            android:background="#CC0B0E14"
+            android:background="@drawable/floating_panel_background"
+            android:elevation="12dp"
+            android:clipToPadding="false"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:visibility="gone">
 
             <!-- Aviso de diagnóstico: cuántos canales/países se han
@@ -430,18 +496,23 @@
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:paddingTop="24dp" />
+                android:paddingTop="8dp" />
         </LinearLayout>
 
-        <!-- Canales de la categoría elegida -->
+        <!-- Canales de la categoría elegida: mismo estilo de tarjeta
+             flotante que el panel de países, un poco separada de él. -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/channelsList"
-            android:layout_width="280dp"
+            android:layout_width="260dp"
             android:layout_height="match_parent"
             android:layout_gravity="start"
-            android:layout_marginStart="220dp"
-            android:background="#B30B0E14"
-            android:paddingTop="24dp"
+            android:layout_marginStart="224dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/floating_panel_background"
+            android:elevation="12dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
             android:visibility="gone" />
 
         <!-- OSD: aviso flotante al cambiar de canal -->
@@ -490,13 +561,18 @@
             android:textSize="16sp"
             android:visibility="gone" />
 
-        <!-- Franja de publicidad, siempre visible abajo del todo -->
+        <!-- Franja de publicidad: una capa fina y semitransparente flotando
+             sobre el borde inferior del vídeo. Empieza oculta (gone) y solo
+             se muestra desde el código cuando llega un anuncio de verdad,
+             para que la pantalla se vea completa de esquina a esquina
+             cuando no hay anuncio que mostrar. -->
         <FrameLayout
             android:id="@+id/adContainer"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="50dp"
             android:layout_gravity="bottom"
-            android:background="#0B0E14" />
+            android:background="#99000000"
+            android:visibility="gone" />
     </FrameLayout>
 
 </FrameLayout>

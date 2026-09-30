@@ -1,5 +1,6 @@
 package tv.boughazi.app
 
+import android.content.res.Configuration
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -18,9 +19,11 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.gms.ads.AdListener
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
 import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
 import kotlinx.coroutines.launch
 
@@ -75,6 +78,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        updateFullscreenMode(resources.configuration.orientation)
         sessionManager = SessionManager(this)
         MobileAds.initialize(this)
 
@@ -94,6 +98,7 @@ class MainActivity : AppCompatActivity() {
         loadingText = findViewById(R.id.loadingText)
         debugInfoText = findViewById(R.id.debugInfoText)
         val tapOverlay: View = findViewById(R.id.tapOverlay)
+        val menuButton: View = findViewById(R.id.menuButton)
 
         // En la tele esto se abre con el botón de guía/menú del mando. En
         // el móvil no hay mando, así que tocar la pantalla mientras se ve
@@ -105,6 +110,17 @@ class MainActivity : AppCompatActivity() {
         tapOverlay.setOnClickListener {
             if (mainSection.visibility == View.VISIBLE) {
                 if (categoriesColumn.visibility == View.VISIBLE) hideChannelBrowser() else showChannelBrowser()
+            }
+        }
+
+        // Botón de menú (☰) fijo, siempre encima del vídeo. Hace lo mismo
+        // que tocar la pantalla, pero al ser un botón concreto y visible
+        // es más fácil de encontrar. Se abre directamente en el canal que
+        // se está viendo en ese momento, con su logo, y al volver a
+        // tocarlo se cierra y se regresa al vídeo.
+        menuButton.setOnClickListener {
+            if (mainSection.visibility == View.VISIBLE) {
+                if (categoriesColumn.visibility == View.VISIBLE) hideChannelBrowser() else openBrowserAtCurrentChannel()
             }
         }
 
@@ -134,6 +150,42 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Cuando el móvil está girado en horizontal, el canal se ve en pantalla
+     * completa de verdad: se esconden la barra de arriba (hora, wifi,
+     * batería) y la barra de abajo del móvil, para que el vídeo ocupe todo
+     * el hueco. Cuando el móvil vuelve a estar en vertical, esas barras
+     * se vuelven a ver normales.
+     */
+    private fun updateFullscreenMode(orientation: Int) {
+        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = (
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                )
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        updateFullscreenMode(newConfig.orientation)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            updateFullscreenMode(resources.configuration.orientation)
         }
     }
 
@@ -293,9 +345,8 @@ class MainActivity : AppCompatActivity() {
                             attemptRedeem(renewed, code, errorText, allowRetry = false)
                         }
                         is AuthResult.Failure -> {
-                            showError(
-                                errorText,
-                                "Tu sesión caducó y no se pudo renovar. Cierra la app, entra otra vez con tu Gmail y prueba el código de nuevo."
+                            handleSessionExpired(
+                                "Tu sesión caducó. Entra otra vez con tu Gmail y prueba el código de nuevo."
                             )
                         }
                     }
@@ -307,6 +358,19 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Cuando la sesión guardada ya no se puede renovar, no dejamos a la
+     * persona atascada mirando un mensaje sin ningún botón: borramos la
+     * sesión caducada del móvil y la devolvemos sola a la pantalla de
+     * entrar con Gmail, para que pueda volver a entrar ahí mismo.
+     */
+    private fun handleSessionExpired(message: String) {
+        sessionManager.clear()
+        session = null
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        showOnly(welcomeSection)
     }
 
     private fun enterMainSection() {
@@ -370,6 +434,7 @@ class MainActivity : AppCompatActivity() {
                 updateDebugInfo(allChannels.size, categories.size, result.totalReportedByServer)
 
                 categoriesList.adapter = RowAdapter(
+                    lifecycleScope,
                     categories.map { RowItem(title = it) }
                 ) { position -> onCategorySelected(categories[position]) }
 
@@ -427,6 +492,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 categoriesList.adapter = RowAdapter(
+                    lifecycleScope,
                     categories.map { RowItem(title = it) }
                 ) { position -> onCategorySelected(categories[position]) }
 
@@ -445,8 +511,7 @@ class MainActivity : AppCompatActivity() {
                             loadChannels(renewed, allowRetry = false)
                         }
                         is AuthResult.Failure -> {
-                            loadingText.text = "Tu sesión ha caducado. Sal de la app y vuelve a entrar con tu Gmail."
-                            loadingText.visibility = View.VISIBLE
+                            handleSessionExpired("Tu sesión ha caducado. Entra otra vez con tu Gmail.")
                         }
                     }
                 } else {
@@ -462,19 +527,20 @@ class MainActivity : AppCompatActivity() {
         currentlyViewedCategory = category
         val channelsInCategory = allChannels.filter { it.category == category }
         channelsList.adapter = RowAdapter(
-            channelsInCategory.mapIndexed { idx, it -> RowItem(title = "${idx + 1}  ${it.name}") }
+            lifecycleScope,
+            channelsInCategory.mapIndexed { idx, it -> RowItem(title = "${idx + 1}  ${it.name}", logoUrl = it.logoUrl) }
         ) { position ->
             val chosen = channelsInCategory[position]
             val flatIndex = allChannels.indexOfFirst { it.id == chosen.id }
             if (flatIndex >= 0) playChannel(flatIndex)
             hideChannelBrowser()
         }
-        channelsList.visibility = View.VISIBLE
+        floatIn(channelsList)
         channelsList.requestFocus()
     }
 
     private fun showChannelBrowser() {
-        categoriesColumn.visibility = View.VISIBLE
+        floatIn(categoriesColumn)
         categoriesList.requestFocus()
     }
 
@@ -485,7 +551,7 @@ class MainActivity : AppCompatActivity() {
      * sin tener que buscar desde el principio.
      */
     private fun openBrowserAtCurrentChannel() {
-        categoriesColumn.visibility = View.VISIBLE
+        floatIn(categoriesColumn)
         val current = allChannels.getOrNull(currentIndex)
         if (current != null) {
             onCategorySelected(current.category)
@@ -496,10 +562,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hideChannelBrowser() {
-        categoriesColumn.visibility = View.GONE
-        channelsList.visibility = View.GONE
+        floatOut(categoriesColumn)
+        floatOut(channelsList)
         currentlyViewedCategory = null
         playerView.requestFocus()
+    }
+
+    // Los paneles de canales ya no aparecen/desaparecen de golpe: entran
+    // deslizándose un poco desde la izquierda mientras se hacen visibles
+    // (floatIn), y salen de la misma forma antes de esconderse del todo
+    // (floatOut), para que se sientan como una tarjeta flotando encima
+    // del vídeo en vez de un cambio brusco de pantalla.
+    private fun floatIn(view: View) {
+        view.animate().cancel()
+        view.translationX = -40f
+        view.alpha = 0f
+        view.visibility = View.VISIBLE
+        view.animate()
+            .translationX(0f)
+            .alpha(1f)
+            .setDuration(200)
+            .start()
+    }
+
+    private fun floatOut(view: View) {
+        if (view.visibility != View.VISIBLE) return
+        view.animate().cancel()
+        view.animate()
+            .translationX(-40f)
+            .alpha(0f)
+            .setDuration(150)
+            .withEndAction {
+                view.visibility = View.GONE
+                view.translationX = 0f
+                view.alpha = 1f
+            }
+            .start()
     }
 
     private fun playChannel(index: Int) {
@@ -664,10 +762,28 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupAdBanner() {
         val testAdUnitId = "ca-app-pub-3940256099942544/6300978111"
+        val adContainer = findViewById<android.widget.FrameLayout>(R.id.adContainer)
         val adView = AdView(this)
         adView.adUnitId = testAdUnitId
         adView.setAdSize(AdSize.BANNER)
-        findViewById<android.widget.FrameLayout>(R.id.adContainer).addView(adView)
+        // El contenedor empieza oculto (visibility="gone" en el layout).
+        // Solo lo mostramos cuando llega un anuncio real; si falla la carga
+        // o el anuncio se descarta, lo volvemos a ocultar del todo, para
+        // que la franja nunca ocupe espacio ni se vea vacía en pantalla.
+        adView.adListener = object : AdListener() {
+            override fun onAdLoaded() {
+                adContainer.visibility = View.VISIBLE
+            }
+
+            override fun onAdFailedToLoad(adError: LoadAdError) {
+                adContainer.visibility = View.GONE
+            }
+
+            override fun onAdClosed() {
+                adContainer.visibility = View.GONE
+            }
+        }
+        adContainer.addView(adView)
         adView.loadAd(AdRequest.Builder().build())
     }
 

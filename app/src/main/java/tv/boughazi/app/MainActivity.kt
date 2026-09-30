@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity() {
         debugInfoText = findViewById(R.id.debugInfoText)
         val tapOverlay: View = findViewById(R.id.tapOverlay)
         val menuButton: View = findViewById(R.id.menuButton)
+        val fullscreenButton: View = findViewById(R.id.fullscreenButton)
 
         // En la tele esto se abre con el botón de guía/menú del mando. En
         // el móvil no hay mando, así que tocar la pantalla mientras se ve
@@ -122,6 +123,15 @@ class MainActivity : AppCompatActivity() {
             if (mainSection.visibility == View.VISIBLE) {
                 if (categoriesColumn.visibility == View.VISIBLE) hideChannelBrowser() else openBrowserAtCurrentChannel()
             }
+        }
+
+        // Botón de pantalla completa (⛶) fijo, siempre encima del vídeo.
+        // Al tocarlo, la persona entra o sale de la pantalla completa de
+        // verdad ella misma, sin tener que girar el móvil para que pase
+        // sola. Si luego gira el móvil de todas formas, manda otra vez
+        // (así girar el móvil siempre gana y deja las cosas normales).
+        fullscreenButton.setOnClickListener {
+            toggleManualFullscreen()
         }
 
         setupWelcomeSection()
@@ -159,26 +169,45 @@ class MainActivity : AppCompatActivity() {
      * batería) y la barra de abajo del móvil, para que el vídeo ocupe todo
      * el hueco. Cuando el móvil vuelve a estar en vertical, esas barras
      * se vuelven a ver normales.
+     *
+     * Además del giro automático, el botón (⛶) deja forzar la pantalla
+     * completa a mano, en cualquier postura del móvil. Esa elección manual
+     * se guarda aquí (null = todavía no ha tocado el botón, así que manda
+     * el giro del móvil como siempre); en cuanto la persona gira el móvil
+     * de verdad, esa elección manual se olvida y vuelve a mandar el giro.
      */
+    private var manualFullscreenOverride: Boolean? = null
+
     private fun updateFullscreenMode(orientation: Int) {
-        if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = (
-                View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    or View.SYSTEM_UI_FLAG_FULLSCREEN
-                    or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                )
+        val fullscreen = manualFullscreenOverride
+            ?: (orientation == Configuration.ORIENTATION_LANDSCAPE)
+        applyFullscreenFlags(fullscreen)
+    }
+
+    private fun applyFullscreenFlags(fullscreen: Boolean) {
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = if (fullscreen) {
+            (View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY)
         } else {
-            @Suppress("DEPRECATION")
-            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         }
+    }
+
+    private fun toggleManualFullscreen() {
+        val currentlyFullscreen = manualFullscreenOverride
+            ?: (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+        manualFullscreenOverride = !currentlyFullscreen
+        applyFullscreenFlags(!currentlyFullscreen)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        manualFullscreenOverride = null
         updateFullscreenMode(newConfig.orientation)
     }
 
@@ -345,9 +374,8 @@ class MainActivity : AppCompatActivity() {
                             attemptRedeem(renewed, code, errorText, allowRetry = false)
                         }
                         is AuthResult.Failure -> {
-                            showError(
-                                errorText,
-                                "Tu sesión caducó y no se pudo renovar. Cierra la app, entra otra vez con tu Gmail y prueba el código de nuevo."
+                            handleSessionExpired(
+                                "Tu sesión caducó. Entra otra vez con tu Gmail y prueba el código de nuevo."
                             )
                         }
                     }
@@ -359,6 +387,19 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /**
+     * Cuando la sesión guardada ya no se puede renovar, no dejamos a la
+     * persona atascada mirando un mensaje sin ningún botón: borramos la
+     * sesión caducada del móvil y la devolvemos sola a la pantalla de
+     * entrar con Gmail, para que pueda volver a entrar ahí mismo.
+     */
+    private fun handleSessionExpired(message: String) {
+        sessionManager.clear()
+        session = null
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        showOnly(welcomeSection)
     }
 
     private fun enterMainSection() {
@@ -499,8 +540,7 @@ class MainActivity : AppCompatActivity() {
                             loadChannels(renewed, allowRetry = false)
                         }
                         is AuthResult.Failure -> {
-                            loadingText.text = "Tu sesión ha caducado. Sal de la app y vuelve a entrar con tu Gmail."
-                            loadingText.visibility = View.VISIBLE
+                            handleSessionExpired("Tu sesión ha caducado. Entra otra vez con tu Gmail.")
                         }
                     }
                 } else {

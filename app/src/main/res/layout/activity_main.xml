@@ -416,23 +416,47 @@
             android:clickable="true"
             android:focusable="false" />
 
-        <!-- Botón de menú (☰), siempre visible arriba a la derecha del
-             vídeo. Al tocarlo se abre la lista de canales (con su logo)
-             justo en el país y canal donde se está viendo en ese momento;
-             al tocarlo de nuevo, se cierra y se vuelve al canal. -->
-        <TextView
-            android:id="@+id/menuButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_gravity="top|end"
+        <!-- Los dos botones fijos van juntos, uno encima del otro, arriba
+             a la izquierda del vídeo: primero el de pantalla completa,
+             luego el de la lista de canales. -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top|start"
             android:layout_margin="14dp"
-            android:text="☰"
-            android:textColor="@color/white"
-            android:textSize="26sp"
-            android:gravity="center"
-            android:background="#99000000"
-            android:clickable="true"
-            android:focusable="true" />
+            android:orientation="vertical"
+            android:elevation="16dp">
+
+            <!-- Botón de pantalla completa (⛶). Al tocarlo, la persona
+                 puede entrar o salir de la pantalla completa de verdad
+                 ella misma, sin tener que girar el móvil. -->
+            <ImageView
+                android:id="@+id/fullscreenButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:padding="11dp"
+                android:src="@drawable/ic_fullscreen"
+                android:background="#99000000"
+                android:contentDescription="@null"
+                android:clickable="true"
+                android:focusable="true" />
+
+            <!-- Botón de la lista de canales (☰). Al tocarlo se abre la
+                 lista de canales (con su logo) justo en el país y canal
+                 donde se está viendo en ese momento; al tocarlo de nuevo,
+                 se cierra y se vuelve al canal. -->
+            <ImageView
+                android:id="@+id/menuButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_marginTop="10dp"
+                android:padding="11dp"
+                android:src="@drawable/ic_channels_menu"
+                android:background="#99000000"
+                android:contentDescription="@null"
+                android:clickable="true"
+                android:focusable="true" />
+        </LinearLayout>
 
         <!-- Categorías (izquierda). Ya no ocupa toda la altura pegada al
              borde: tiene un margen alrededor y esquinas redondeadas, para

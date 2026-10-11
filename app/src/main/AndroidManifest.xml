@@ -12,13 +12,17 @@
         android:name="android.hardware.touchscreen"
         android:required="false" />
 
+    <!-- usesCleartextTraffic="true" (igual que en la tele): muchos logos
+         y canales de IPTV están en direcciones http:// (sin la "s"). Si
+         se prohíbe, Android bloquea esos logos y vídeos. Las conexiones
+         con Supabase siguen yendo siempre por https://. -->
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:banner="@mipmap/ic_launcher"
         android:theme="@style/Theme.BoughaziTV"
-        android:usesCleartextTraffic="false">
+        android:usesCleartextTraffic="true">
 
         <!-- ID de aplicación de Google AdMob. Este es el ID DE PRUEBA
              oficial de Google (no genera ingresos). Cámbialo por el tuyo
